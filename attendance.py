@@ -6,9 +6,12 @@ import os
 import sys
 import datetime
 import argparse
+import resource
 
 # Global datetime when program is ran
 today = datetime.datetime.today()
+
+# Used to convert dstring config variable to weekday
 days = {"m": 0, "t": 1, "w": 2, "r": 3, "f": 4}
 
 # Global list of names mapping to student login
@@ -39,17 +42,14 @@ def parse_ellapsed_time(s):
     days = 0
     hours = 0
     minutes = 0
-
     # Remove parentheses
     s = s[1:-1]
-
+    # If there is a '+' in the string, it has a days portion
     if '+' in s:
         li = s.split('+')
         days = int(li[0])
         s = ':'.join(li[1:])
-
     hours, minutes = map(int, s.split(':'))
-    
     return (days, hours, minutes)
 
 # Given the username of the account, returns the name in /etc/passwd
@@ -57,18 +57,22 @@ def get_name(username):
     global names
     if username in names:
         return names[username]
-    
     line = getoutput("grep '^{}' /etc/passwd".format(username))
     name = line.split(':')[4].split(',')[0]
     names[username] = name
     return name
 
 # Given the machine prefix and the course number, return the results of the
-# last commmand
+# last commmand on each machine
 def get_last(m_no, c_no, verbose=True):
+    # Set the resource limit of the process to prevent dsh from hanging
+    resource.setrlimit(resource.RLIMIT_NPROC, (200, 200))
+    # Using distributed shell to collect last data from each machine
     output = getoutput("dsh -f -N {} -e 'last | grep ^{}'".format(
         m_no, c_no.replace("[", "\[").replace("]", "\]")))
+    # Skip the first line from dsh, not needed
     li = output.split("\n")[1:]
+    # Format each line so that the hostname is moved to the end of the line
     for i in range(len(li)):
         p = li[i].split(":")
         rest = ":".join(p[1:]).lstrip()
@@ -81,8 +85,7 @@ def extract_students(lines):
     students = []
     for line in lines:
         li = line.split()
-        # If the line has ":0" in the second column, the connection was made remotely and
-        # should be discarded
+        # If the second field in the line starts with a ':', the login is local
         if li[1][0] == ":":
             start = make_date(' '.join(li[3:6]))
             if li[6] == "still":
@@ -97,23 +100,23 @@ def extract_students(lines):
 # Determines if a student is logged in during a given date range
 def student_logged_in(s, start_date, end_date):
     global still_logged_in
+    # A student must login / logout +-15 minutes of class time
     delta = datetime.timedelta(minutes=15)
     st = start_date - delta
     et = end_date + delta
     # Check the cases where the student is still logged in
     if s["end"] == None:
+        # If the student is still logged in, save for later
         if s["name"] not in still_logged_in:
             still_logged_in[s["name"]] = s
         if s["start"] >= st and s["start"] <= et:
             return True
         return False
-
     # Check the cases where the student is no longer logged in
     if s["start"] >= st and s["start"] <= et:
         return True
     if s["end"] >= st and s["end"] <= et:
         return True
-
     # The logged in time frame does not overlap with the specified time frame
     return False
 
