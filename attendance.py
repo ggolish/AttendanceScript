@@ -66,14 +66,17 @@ def get_name(username):
 # last commmand on each machine
 def get_last(m_no, c_no, verbose=True):
     # Set the resource limit of the process to prevent dsh from hanging
-    resource.setrlimit(resource.RLIMIT_NPROC, (200, 200))
+    resource.setrlimit(resource.RLIMIT_NPROC, (100, 100))
     # Using distributed shell to collect last data from each machine
     output = getoutput("dsh -f -N {} -e 'last | grep ^{}'".format(
         m_no, c_no.replace("[", "\[").replace("]", "\]")))
     # Skip the first line from dsh, not needed
-    li = output.split("\n")[1:]
+    li = output.split("\n")
+    while not li[0].startswith("executing"): 
+        print(li[0])
+        li.pop(0)
     # Format each line so that the hostname is moved to the end of the line
-    for i in range(len(li)):
+    for i in range(1, len(li)):
         p = li[i].split(":")
         rest = ":".join(p[1:]).lstrip()
         li[i] = " ".join([rest, p[0]])
