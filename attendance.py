@@ -35,7 +35,7 @@ def load_config():
         return {}
 
     return json.load(fd)
-        
+       
 # Takes the ellapsed time string from last and returns the ammount of time in days, minutes, and
 # hours
 def parse_ellapsed_time(s):
@@ -139,7 +139,7 @@ def get_all_names(class_no, everyone=False):
             names.append((name, pieces[0]))
     return names
 
-def main(config, start_date, end_date, args):
+def main(config, start_date, end_date, start_range, end_range, args):
     global today, days
     logins = extract_students(get_last(config["machine_no"], config["class_no"], verbose=False))
     curr_start = start_date
@@ -151,7 +151,7 @@ def main(config, start_date, end_date, args):
         if n[1] not in config["ignore"]: attendance[n] = [0, []]
     total = 0
     while curr_end < today:
-        if curr_start.weekday() in class_days:
+        if curr_start.weekday() in class_days and curr_start >= start_range and curr_end <= end_range:
             total += 1
             curr_logins = filter_by_date(logins, curr_start, curr_end)
             names = list(set([(s["name"], s["login"]) for s in curr_logins]))
@@ -198,10 +198,20 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(prog="attendance", description="Displays the attendance for a course.")
     parser.add_argument("-a", "--absent", action="store_true", help="Display the absence report.")
+    parser.add_argument("-s", "--start", help="Specifies the beginning of the date range checked.")
+    parser.add_argument("-e", "--end", help="Specifies the end of the date range checked.")
     args = parser.parse_args(sys.argv[1:])
 
     start_date = make_date("{} {}".format(config["start_day"], config["start_time"]))
     end_date = make_date("{} {}".format(config["start_day"], config["end_time"]))
 
-    main(config, start_date, end_date, args)
+    start_range = datetime.datetime.min
+    end_range = datetime.datetime.max
+
+    if args.start:
+        start_range = make_date("{} {}".format(args.start, config["start_time"]))
+    if args.end:
+        end_range = make_date("{} {}".format(args.end, config["end_time"]))
+
+    main(config, start_date, end_date, start_range, end_range, args)
 
