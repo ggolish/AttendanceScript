@@ -66,7 +66,7 @@ def get_name(username):
 # last commmand on each machine
 def get_last(m_no, c_no, verbose=True):
     # Set the resource limit of the process to prevent dsh from hanging
-    resource.setrlimit(resource.RLIMIT_NPROC, (100, 100))
+#     resource.setrlimit(resource.RLIMIT_NPROC, (500, 500))
     # Using distributed shell to collect last data from each machine
     output = getoutput("dsh -f -N {} -e 'last | grep ^{}'".format(
         m_no, c_no.replace("[", "\[").replace("]", "\]")))
@@ -81,6 +81,19 @@ def get_last(m_no, c_no, verbose=True):
         rest = ":".join(p[1:]).lstrip()
         li[i] = " ".join([rest, p[0]])
     return li
+
+def get_who(m_no, c_no):
+    # Set the resource limit of the process to prevent dsh from hanging
+    # Using distributed shell to collect who data from each machine
+    output = getoutput("dsh -f -N {} -e 'who | grep ^{}'".format(
+        m_no, c_no.replace("[", "\[").replace("]", "\]")))
+    # Skip the first line from dsh, not needed
+    li = output.split("\n")
+    while not li[0].startswith("executing"): 
+        sys.stderr.write("{}\n".format(li[0]))
+        li.pop(0)
+    return set((get_name(l.split()[1]), l.split()[1]) for l in li[1:])
+
 
 # Extracts students and most recent logins from last output lines, remote connections
 # are ommitted
@@ -138,6 +151,17 @@ def get_all_names(class_no, everyone=False):
         if name or everyone:
             names.append((name, pieces[0]))
     return names
+
+def roll_call(config):
+    who = get_who(config["machine_no"], config["class_no"])
+    print("Here:")
+    for n, _ in who:
+        print(n)
+    print()
+    print("Absent:")
+    for n, u in [n for n in get_all_names(config["class_no"]) if n not in who]:
+        if u not in config["ignore"]: print(n)
+    print()
 
 def main(config, start_date, end_date, start_range, end_range, args):
     global today, days
@@ -200,7 +224,12 @@ if __name__ == "__main__":
     parser.add_argument("-a", "--absent", action="store_true", help="Display the absence report.")
     parser.add_argument("-s", "--start", help="Specifies the beginning of the date range checked.")
     parser.add_argument("-e", "--end", help="Specifies the end of the date range checked.")
+    parser.add_argument("-r", "--roll", action="store_true", help="Displays who is and isn't logged in now.")
     args = parser.parse_args(sys.argv[1:])
+
+    if args.roll:
+        roll_call(config)
+        sys.exit(1)
 
     start_date = make_date("{} {}".format(config["start_day"], config["start_time"]))
     end_date = make_date("{} {}".format(config["start_day"], config["end_time"]))
