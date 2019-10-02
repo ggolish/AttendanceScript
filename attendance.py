@@ -66,7 +66,7 @@ def get_name(username):
 # last commmand on each machine
 def get_last(m_no, c_no, verbose=True):
     # Set the resource limit of the process to prevent dsh from hanging
-#     resource.setrlimit(resource.RLIMIT_NPROC, (500, 500))
+    resource.setrlimit(resource.RLIMIT_NPROC, (500, 500))
     # Using distributed shell to collect last data from each machine
     output = getoutput("dsh -f -N {} -e 'last | grep ^{}'".format(
         m_no, c_no.replace("[", "\[").replace("]", "\]")))
@@ -152,6 +152,24 @@ def get_all_names(class_no, everyone=False):
             names.append((name, pieces[0]))
     return names
 
+def lab_report(config, usernames, start_range, end_range):
+    if usernames[0] == "all":
+        usernames = [d[1] for d in get_all_names(config["class_no"])]
+    logins = extract_students(get_last(config["machine_no"], config["class_no"]))
+    targets = [s for s in logins if s["login"] in usernames]
+    counts = dict((u, [0, 0]) for u in usernames)
+    for t in targets:
+        counts[t["login"]][0] += 1
+        counts[t["login"]][1] += (t["end"] - t["start"]).total_seconds() / 3600
+
+    print("*"*72)
+    print("Lab Hours Report {} - {} [{} machines]".format(start_range, end_range, config["machine_no"]))
+    print("*"*72)
+    print("Username".center(10), "|", "Logins".center(8), "|", "Hours".center(10))
+    print("-"*32)
+    for u, d in counts.items():
+        print("{:10s} | {:8d} | {:8.2f}".format(u, d[0], d[1]))
+
 def roll_call(config):
     who = get_who(config["machine_no"], config["class_no"])
     print("Here:")
@@ -225,11 +243,20 @@ if __name__ == "__main__":
     parser.add_argument("-s", "--start", help="Specifies the beginning of the date range checked.")
     parser.add_argument("-e", "--end", help="Specifies the end of the date range checked.")
     parser.add_argument("-r", "--roll", action="store_true", help="Displays who is and isn't logged in now.")
+    parser.add_argument("-m", "--machine-prefix", type=str, help="Overrides the machine_no specified in config.")
+    parser.add_argument("-l", "--lab-report", type=str, help="Display a lab report for given set of users: user1,user2,...")
     args = parser.parse_args(sys.argv[1:])
+
+    if args.machine_prefix:
+        config["machine_no"] = args.machine_prefix
+
+    if config["machine_no"] not in ["x", "y", "z"]:
+        sys.stderr.write("Error: '{}' is an invalid machine prefix.\n".format(config["machine_no"]))
+        sys.exit(1)
 
     if args.roll:
         roll_call(config)
-        sys.exit(1)
+        sys.exit(0)
 
     start_date = make_date("{} {}".format(config["start_day"], config["start_time"]))
     end_date = make_date("{} {}".format(config["start_day"], config["end_time"]))
@@ -241,6 +268,13 @@ if __name__ == "__main__":
         start_range = make_date("{} {}".format(args.start, config["start_time"]))
     if args.end:
         end_range = make_date("{} {}".format(args.end, config["end_time"]))
+
+    if args.lab_report:
+        if not args.start or not args.end:
+            sys.stderr.write("Usage: Please specify <start> and <end> dates for lab report.\n");
+            sys.exit(1)
+        lab_report(config, args.lab_report.split(","), start_range, end_range)
+        sys.exit(0)
 
     main(config, start_date, end_date, start_range, end_range, args)
 
