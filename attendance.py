@@ -156,6 +156,7 @@ def lab_report(config, usernames, start_range, end_range):
     if usernames[0] == "all":
         usernames = [d[1] for d in get_all_names(config["class_no"])]
     logins = extract_students(get_last(config["machine_no"], config["class_no"]))
+    logins = filter_by_date(logins, start_range, end_range)
     targets = [s for s in logins if s["login"] in usernames]
     counts = dict((u, [0, 0]) for u in usernames)
     for t in targets:
