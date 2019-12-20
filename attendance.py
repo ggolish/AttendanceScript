@@ -29,12 +29,25 @@ def make_date(s):
 
 # Loads the config file from the current directory
 def load_config():
-    try:
-        fd = open(".attendance", "r")
-    except:
-        return {}
+    with open(".attendance", "r") as fd:
+        config = json.load(fd)
 
-    return json.load(fd)
+    # Ensure all fields are present in config map
+    required = ["start_time", "end_time", "class_no", "machine_no", "dstring", "start_day"]
+    for f in required:
+        if f not in config:
+            sys.stderr.write(f"Error: Config file must contain field '{f}'")
+            sys.exit(1)
+
+    # Set default values for optional config fields
+    if "ignore" not in config:
+        config["ignore"] = []
+    if "everyone" not in config:
+        config["everyone"] = False
+    if "ignore_dates" not in config:
+        config["ignore_dates"] = []
+
+    return config
        
 # Takes the ellapsed time string from last and returns the ammount of time in days, minutes, and
 # hours
