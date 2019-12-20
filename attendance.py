@@ -207,7 +207,7 @@ def main(config, start_date, end_date, start_range, end_range, args):
         if n[1] not in config["ignore"]: attendance[n] = [0, []]
     total = 0
     while curr_end < today:
-        if curr_start.weekday() in class_days and curr_start >= start_range and curr_end <= end_range:
+        if curr_start.weekday() in class_days and curr_start >= start_range and curr_end <= end_range and curr_start not in config["ignore_dates"]:
             total += 1
             curr_logins = filter_by_date(logins, curr_start, curr_end)
             names = list(set([(s["name"], s["login"]) for s in curr_logins]))
@@ -289,6 +289,9 @@ if __name__ == "__main__":
             sys.exit(1)
         lab_report(config, args.lab_report.split(","), start_range, end_range)
         sys.exit(0)
+
+    for i in range(len(config["ignore_dates"])):
+        config["ignore_dates"][i] = make_date("{} {}".format(config["ignore_dates"][i], config["start_time"]))
 
     main(config, start_date, end_date, start_range, end_range, args)
 
