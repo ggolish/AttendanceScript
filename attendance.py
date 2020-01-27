@@ -81,8 +81,12 @@ def get_last(m_no, c_no, verbose=True):
     # Set the resource limit of the process to prevent dsh from hanging
     resource.setrlimit(resource.RLIMIT_NPROC, (500, 500))
     # Using distributed shell to collect last data from each machine
-    output = getoutput("dsh -f -N {} -e 'last | grep ^{}'".format(
-        m_no, c_no.replace("[", "\[").replace("]", "\]")))
+    if m_no == "cs":
+        output = getoutput("dsh -f -w {} -e 'last | grep ^{}'".format(
+            m_no, c_no.replace("[", "\[").replace("]", "\]")))
+    else:
+        output = getoutput("dsh -f -N {} -e 'last | grep ^{}'".format(
+            m_no, c_no.replace("[", "\[").replace("]", "\]")))
     # Skip the first line from dsh, not needed
     li = output.split("\n")
     while not li[0].startswith("executing"): 
@@ -110,17 +114,19 @@ def get_who(m_no, c_no):
 
 # Extracts students and most recent logins from last output lines, remote connections
 # are ommitted
-def extract_students(lines):
+def extract_students(lines, local=True):
     students = []
-    for line in lines:
+    for line in lines[1:]:
         li = line.split()
         # If the second field in the line starts with a ':', the login is local
-        if li[1][0] == ":":
-            start = make_date(' '.join(li[3:6]))
-            if li[6] == "still":
+        if (not local) or (li[1][0] == ":"):
+            offset = 0 if local else 1
+            datestring = li[3+offset:6+offset]
+            start = make_date(' '.join(datestring))
+            if li[6+offset] == "still":
                 end = None
             else:
-                delta = parse_ellapsed_time(li[-2])
+                delta = parse_ellapsed_time(li[-(2+offset)])
                 end = start + datetime.timedelta(days=delta[0], hours=delta[1],
                                                 minutes=delta[2])
             students.append({"start": start, "end": end, "name": get_name(li[0]), "login": li[0], "og": line, "machine": li[-1]})
@@ -168,7 +174,8 @@ def get_all_names(class_no, everyone=False):
 def lab_report(config, usernames, start_range, end_range):
     if usernames[0] == "all":
         usernames = [d[1] for d in get_all_names(config["class_no"])]
-    logins = extract_students(get_last(config["machine_no"], config["class_no"]))
+    local = (config["machine_no"] != "cs")
+    logins = extract_students(get_last(config["machine_no"], config["class_no"]), local=local)
     logins = filter_by_date(logins, start_range, end_range)
     targets = [s for s in logins if s["login"] in usernames]
     counts = dict((u, [0, 0]) for u in usernames)
@@ -264,7 +271,7 @@ if __name__ == "__main__":
     if args.machine_prefix:
         config["machine_no"] = args.machine_prefix
 
-    if config["machine_no"] not in ["x", "y", "z"]:
+    if config["machine_no"] not in ["x", "y", "z", "cs"]:
         sys.stderr.write("Error: '{}' is an invalid machine prefix.\n".format(config["machine_no"]))
         sys.exit(1)
 
