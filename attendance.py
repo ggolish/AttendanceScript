@@ -46,6 +46,8 @@ def load_config():
         config["everyone"] = False
     if "ignore_dates" not in config:
         config["ignore_dates"] = []
+    if "excused" not in config:
+        config["excused"] = {}
 
     return config
        
@@ -222,7 +224,11 @@ def main(config, start_date, end_date, start_range, end_range, args):
                 if n in attendance:
                     attendance[n][0] += 1
             for n in [n for n in attendance.keys() if n not in names]:
-                attendance[n][1].append(curr_start.strftime("%a %b %d"))
+                if n[1] in config["excused"].keys() and curr_start in config["excused"][n[1]]:
+                    print(f"{n} is excused on {curr_start}")
+                    attendance[n][0] += 1
+                else:
+                    attendance[n][1].append(curr_start.strftime("%a %b %d"))
         curr_start += delta
         curr_end += delta
 
@@ -289,6 +295,11 @@ if __name__ == "__main__":
         start_range = make_date("{} {}".format(args.start, config["start_time"]))
     if args.end:
         end_range = make_date("{} {}".format(args.end, config["end_time"]))
+
+    # Parse dates for excused absences
+    for n in config["excused"]:
+        dates = config["excused"][n]
+        config["excused"][n] = list(map(lambda d: make_date("{} {}".format(d, config["start_time"])), dates))
 
     if args.lab_report:
         if not args.start or not args.end:
