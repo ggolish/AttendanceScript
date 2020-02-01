@@ -1,0 +1,16 @@
+{
+  "start_time": "14:00",
+  "end_time": "14:50",
+  "class_no": "cs202",
+  "machine_no": "z",
+  "dstring": "TR",
+  "start_day": "Jan 15",
+  "ignore": ["cs202"],
+  "everyone": false,
+  "excused": {
+     "cs20209": [
+        "Jan 28"
+     ]
+  }
+}
+  
