@@ -25,7 +25,7 @@ still_logged_in = {}
 # semesters do not span more than one year for a given class
 def make_date(s):
     global today
-    return datetime.datetime.strptime(s, "%b %d %H:%M").replace(year=today.year)
+    return datetime.datetime.strptime(f"{s} {today.year}", "%b %d %H:%M %Y")
 
 # Loads the config file from the current directory
 def load_config():
